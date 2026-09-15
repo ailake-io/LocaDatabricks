@@ -1,0 +1,10 @@
+/bin/
+*.exe
+
+# runtime state (created by the emulator, not source)
+/dbfs_root/
+/workspace_root/
+*.db
+*.db-journal
+
+.DS_Store

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalDatabricks Console</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+  }
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+  }
+  nav h1 { font-size: 1.1rem; margin: 0; color: #fb923c; }
+  nav .tabs button {
+    background: none;
+    border: none;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  nav .tabs button.active { color: #fb923c; font-weight: 600; background: #33415560; }
+  main { padding: 2rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; }
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  .card .label { color: #94a3b8; font-size: 0.85rem; }
+  .card .value { font-size: 1.4rem; font-weight: 700; margin-top: 0.25rem; }
+  .value.ok { color: #4ade80; }
+  .mono { font-family: ui-monospace, SFMono-Regular, monospace; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+  th { color: #94a3b8; font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<nav>
+  <h1>⚡ LocalDatabricks Emulator</h1>
+  <div class="tabs">
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="clusters">Clusters</button>
+    <button data-tab="jobs">Jobs & Runs</button>
+  </div>
+</nav>
+
+<main>
+  <section id="tab-dashboard">
+    <h2>Emulator Status</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="label">Server Status</div>
+        <div class="value ok">Online</div>
+      </div>
+      <div class="card">
+        <div class="label">DBFS Root</div>
+        <div class="value mono" style="font-size:1rem">./dbfs_root</div>
+      </div>
+      <div class="card">
+        <div class="label">Workspace Root</div>
+        <div class="value mono" style="font-size:1rem">./workspace_root</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-clusters" hidden>
+    <h2>Virtual Clusters</h2>
+    <table>
+      <thead><tr><th>Cluster ID</th><th>Name</th><th>State</th></tr></thead>
+      <tbody id="clusters-body"><tr><td colspan="3">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section id="tab-jobs" hidden>
+    <h2>Job Runs</h2>
+    <p style="color:#94a3b8">Trigger jobs via <code>POST /api/2.0/jobs/run-now</code>, check status here once run.</p>
+    <table>
+      <thead><tr><th>Run ID</th><th>Life Cycle</th><th>Result</th></tr></thead>
+      <tbody id="runs-body"><tr><td colspan="3">No runs tracked in this session yet.</td></tr></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+(function () {
+  var tabs = document.querySelectorAll('nav .tabs button');
+  tabs.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      tabs.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.querySelectorAll('main > section').forEach(function (s) {
+        s.hidden = s.id !== 'tab-' + btn.dataset.tab;
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
