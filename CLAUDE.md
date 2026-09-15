@@ -25,19 +25,25 @@ Full diagram: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ## Running
 
 ```bash
-export DATABRICKS_HOST=http://localhost:8080
-export DATABRICKS_TOKEN=dapi-local-mock-token
-go run cmd/localdatabricks/main.go
+go run ./cmd/localdatabricks --port 8080
 ```
 
-Serves API + UI on `:8080`.
+Binds to `127.0.0.1` by default and prints a generated bearer token on startup (or pass `--token`/`LOCALDATABRICKS_TOKEN`). Point clients at it:
+
+```bash
+export DATABRICKS_HOST=http://localhost:8080
+export DATABRICKS_TOKEN=<token printed on startup>
+```
 
 ## Rules
 
 - Stream DBFS payloads (`io.Reader`/`io.Writer`) — never buffer large files into RAM.
 - Response JSON must match `databricks-sdk-go` / Terraform provider field names exactly.
 - Errors use Databricks' shape: `{"error_code": ..., "message": ...}`, not generic HTTP 500s.
-- New UI assets go under `ui/` so `//go:embed ui/*` keeps picking them up.
+- New UI assets go under `cmd/localdatabricks/ui/` so `go:embed` keeps picking them up.
+- Every `/api/*` route sits behind `api.RequireToken` — don't add a route outside the `/api` group unless it's genuinely meant to be public.
+- Any handler that maps a request path to disk (DBFS, workspace, job scripts) must go through `resolveRootedPath` — it's symlink-aware, not just a lexical `..` check.
+- `--bind` defaults to loopback on purpose: `jobs/run-now` executes real subprocesses, so exposing the port beyond localhost without also reviewing auth is a real RCE surface.
 
 ## Docs
 

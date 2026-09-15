@@ -5,7 +5,8 @@
 - **Low memory footprint** — avoid loading large payloads into RAM; stream files for DBFS endpoints using Go's `io.Reader`/`io.Writer` (see `internal/api/dbfs.go`).
 - **Standard SDK compatibility** — response JSON keys must match what `databricks-sdk-go` and the Databricks Terraform provider expect.
 - **Error handling** — return standard Databricks API error format (`error_code`, `message`) via `internal/api/errors.go:dbxError`, never a generic HTTP 500 page.
-- **Path safety** — any endpoint that maps a request path to disk (DBFS, workspace, job scripts) must confine it under its root (`resolveRootedPath` / `resolveWorkspacePath`) before touching the filesystem or `exec.Command`.
+- **Path safety** — any endpoint that maps a request path to disk (DBFS, workspace, job scripts) must confine it under its root via `resolveRootedPath` (`internal/api/pathsafe.go`) before touching the filesystem or `exec.Command`. It checks both lexically (`..` traversal) and by resolving symlinks on the nearest existing ancestor — a lexical-only check can be bypassed by a symlink planted under the root that points outside it.
+- **Auth** — every `/api/*` route sits behind `RequireToken` (`internal/api/auth.go`), a bearer-token check comparable to real Databricks' `DATABRICKS_TOKEN`. `jobs/run-now` executes real subprocesses, so an unauthenticated instance reachable by others is an RCE surface, not just a mock. The server also binds to `127.0.0.1` by default for the same reason — only pass `--bind` to something else deliberately.
 - **Single-binary integrity** — UI assets live at `cmd/localdatabricks/ui/`, next to `main.go` — `go:embed` only sees files in its own source file's subtree, so the UI can't live at the repo root.
 - **No external CDN in the UI** — the dashboard is plain HTML/CSS/JS with zero third-party script tags, so it works fully offline and carries no supply-chain surface.
 
@@ -22,11 +23,11 @@ go build -o bin/localdatabricks ./cmd/localdatabricks
 ./bin/localdatabricks --port 8080
 ```
 
-Point the real Databricks CLI/SDK/Terraform provider at it:
+Startup prints a generated bearer token (skip that by passing `--token` or setting `LOCALDATABRICKS_TOKEN`). Point the real Databricks CLI/SDK/Terraform provider at it:
 
 ```bash
 export DATABRICKS_HOST=http://localhost:8080
-export DATABRICKS_TOKEN=dapi-local-mock-token
+export DATABRICKS_TOKEN=<token printed on startup>
 ```
 
 Open http://localhost:8080 for the embedded web management console.

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"flag"
 	"io/fs"
 	"log"
@@ -22,9 +24,19 @@ import (
 var embeddedUI embed.FS
 
 func main() {
+	bind := flag.String("bind", "127.0.0.1", "address to listen on — only change this to expose the emulator beyond localhost")
 	port := flag.String("port", "8080", "port to listen on")
 	dataDir := flag.String("data-dir", ".", "root directory for dbfs_root, workspace_root, metadata.db")
+	token := flag.String("token", os.Getenv("LOCALDATABRICKS_TOKEN"), "bearer token clients must send; a random one is generated and printed if omitted")
 	flag.Parse()
+
+	if *token == "" {
+		generated, err := randomToken()
+		if err != nil {
+			log.Fatalf("generate token: %v", err)
+		}
+		*token = generated
+	}
 
 	dbfsRoot := filepath.Join(*dataDir, "dbfs_root")
 	workspaceRoot := filepath.Join(*dataDir, "workspace_root")
@@ -51,6 +63,7 @@ func main() {
 	api.Register(app, s, exec, api.Config{
 		WorkspaceRoot: workspaceRoot,
 		DBFSRoot:      dbfsRoot,
+		Token:         *token,
 	})
 
 	subFS, err := fs.Sub(embeddedUI, "ui")
@@ -62,6 +75,18 @@ func main() {
 		Index: "index.html",
 	}))
 
-	log.Printf("LocalDatabricks emulator listening on http://localhost:%s\n", *port)
-	log.Fatal(app.Listen(":" + *port))
+	if *bind != "127.0.0.1" && *bind != "localhost" {
+		log.Printf("WARNING: binding to %s exposes an unauthenticated-by-default RCE surface (jobs/run-now executes scripts) to anyone who can reach this address\n", *bind)
+	}
+	log.Printf("LocalDatabricks emulator listening on http://%s:%s\n", *bind, *port)
+	log.Printf("Bearer token: %s (send as 'Authorization: Bearer %s')\n", *token, *token)
+	log.Fatal(app.Listen(*bind + ":" + *port))
+}
+
+func randomToken() (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }

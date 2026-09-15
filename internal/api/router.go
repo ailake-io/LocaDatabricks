@@ -12,10 +12,13 @@ import (
 type Config struct {
 	WorkspaceRoot string
 	DBFSRoot      string
+	Token         string
 }
 
-// Register mounts all /api/2.0 and /api/2.1 routes.
+// Register mounts all /api/2.0 and /api/2.1 routes behind bearer-token auth.
 func Register(app *fiber.App, s *store.Store, exec *engine.Executor, cfg Config) {
+	app.Use("/api", RequireToken(cfg.Token))
+
 	v20 := app.Group("/api/2.0")
 
 	v20.Post("/workspace/mkdirs", workspaceMkdirs(cfg.WorkspaceRoot))

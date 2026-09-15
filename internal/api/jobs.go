@@ -1,33 +1,13 @@
 package api
 
 import (
-	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/ailake-io/LocaDatabricks/internal/engine"
 	"github.com/ailake-io/LocaDatabricks/internal/store"
 )
-
-// resolveWorkspacePath confines a job's script path to workspaceRoot,
-// rejecting any traversal outside of it before exec.Command ever sees it.
-func resolveWorkspacePath(workspaceRoot, rel string) (string, bool) {
-	full := filepath.Join(workspaceRoot, filepath.Clean("/"+rel))
-	absRoot, err := filepath.Abs(workspaceRoot)
-	if err != nil {
-		return "", false
-	}
-	absFull, err := filepath.Abs(full)
-	if err != nil {
-		return "", false
-	}
-	if absFull != absRoot && !strings.HasPrefix(absFull, absRoot+string(filepath.Separator)) {
-		return "", false
-	}
-	return absFull, true
-}
 
 func createJob(s *store.Store, workspaceRoot string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -40,7 +20,7 @@ func createJob(s *store.Store, workspaceRoot string) fiber.Handler {
 		if err := c.BodyParser(&body); err != nil {
 			return dbxError(c, fiber.StatusBadRequest, "INVALID_PARAMETER_VALUE", err.Error())
 		}
-		scriptPath, ok := resolveWorkspacePath(workspaceRoot, body.SparkPythonTask.PythonFile)
+		scriptPath, ok := resolveRootedPath(workspaceRoot, body.SparkPythonTask.PythonFile)
 		if !ok {
 			return dbxError(c, fiber.StatusBadRequest, "INVALID_PARAMETER_VALUE", "python_file must resolve within the workspace root")
 		}

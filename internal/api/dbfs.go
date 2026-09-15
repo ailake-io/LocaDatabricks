@@ -4,28 +4,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
-
-// resolveRootedPath confines a DBFS/workspace request path under root,
-// rejecting traversal (e.g. "../../etc/passwd").
-func resolveRootedPath(root, reqPath string) (string, bool) {
-	full := filepath.Join(root, filepath.Clean("/"+reqPath))
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", false
-	}
-	absFull, err := filepath.Abs(full)
-	if err != nil {
-		return "", false
-	}
-	if absFull != absRoot && !strings.HasPrefix(absFull, absRoot+string(filepath.Separator)) {
-		return "", false
-	}
-	return absFull, true
-}
 
 func dbfsList(root string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
