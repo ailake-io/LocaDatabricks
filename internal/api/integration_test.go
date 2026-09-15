@@ -18,7 +18,7 @@ const testToken = "test-token"
 
 func newTestApp(t *testing.T) *fiber.App {
 	t.Helper()
-	s, err := store.New(":memory:")
+	s, err := store.New(":memory:", ":memory:")
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
@@ -132,5 +132,57 @@ func TestUnityCatalogFlow(t *testing.T) {
 	}
 	if len(out.Tables) != 1 || out.Tables[0].Name != "orders" {
 		t.Fatalf("tables = %+v, want one table named orders", out.Tables)
+	}
+}
+
+func TestSQLStatementFlow(t *testing.T) {
+	app := newTestApp(t)
+
+	do(t, app, "POST", "/api/2.0/sql/statements", `{"statement":"CREATE TABLE t (n INTEGER)"}`)
+	do(t, app, "POST", "/api/2.0/sql/statements", `{"statement":"INSERT INTO t VALUES (1),(2),(3)"}`)
+
+	resp := do(t, app, "POST", "/api/2.0/sql/statements", `{"statement":"SELECT sum(n) AS total FROM t"}`)
+	var out struct {
+		StatementID string `json:"statement_id"`
+		Status      struct {
+			State string `json:"state"`
+		} `json:"status"`
+		Result struct {
+			DataArray [][]any `json:"data_array"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Status.State != "SUCCEEDED" {
+		t.Fatalf("state = %q, want SUCCEEDED (full: %+v)", out.Status.State, out)
+	}
+	if len(out.Result.DataArray) != 1 {
+		t.Fatalf("data_array = %+v, want one row", out.Result.DataArray)
+	}
+
+	getResp := do(t, app, "GET", "/api/2.0/sql/statements/"+out.StatementID, "")
+	if getResp.StatusCode != fiber.StatusOK {
+		t.Fatalf("GET statement status = %d, want 200", getResp.StatusCode)
+	}
+}
+
+func TestSQLStatementInvalidSQLReturns200WithFailedState(t *testing.T) {
+	app := newTestApp(t)
+
+	resp := do(t, app, "POST", "/api/2.0/sql/statements", `{"statement":"NOT VALID SQL"}`)
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("status = %d, want 200 (the failure is reported in the body's status.state)", resp.StatusCode)
+	}
+	var out struct {
+		Status struct {
+			State string `json:"state"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Status.State != "FAILED" {
+		t.Fatalf("state = %q, want FAILED", out.Status.State)
 	}
 }

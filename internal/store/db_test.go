@@ -4,7 +4,7 @@ import "testing"
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := New(":memory:")
+	s, err := New(":memory:", ":memory:")
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}

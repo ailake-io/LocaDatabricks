@@ -5,19 +5,21 @@ Lightweight local emulator for Databricks Control Plane/Data Plane APIs, written
 ## Stack
 
 - **Language:** Go, HTTP routing via Fiber (`gofiber/fiber/v2`)
-- **Metadata store:** embedded SQLite (or DuckDB) — `metadata.db`
+- **Metastore:** embedded SQLite, pure-Go driver (`modernc.org/sqlite`) — `metadata.db`
+- **SQL warehouse:** embedded DuckDB (`marcboeker/go-duckdb/v2`, cgo) — `warehouse.duckdb`. Requires a C compiler to build (unlike the rest of the stack) and adds ~60MB to the binary — accepted tradeoff for real query execution instead of a fake warehouse. Build with `CGO_ENABLED=1` (the default when a C compiler is present).
 - **File storage:** local directories (`./dbfs_root`, `./workspace_root`)
-- **UI:** single embedded HTML file (Tailwind CDN + Alpine.js), bundled into the binary via `//go:embed ui/*`
-- **Constraint:** must idle under ~100MB RAM; single-binary distribution
+- **UI:** plain HTML/CSS/JS, no CDN dependency, bundled into the binary via `go:embed`
+- **Constraint:** idle RAM target under ~100MB; binary itself is large (DuckDB static lib) but that's disk, not idle RAM
 
 ## Project layout
 
 ```
 cmd/localdatabricks/main.go   # entrypoint, routes, embedded UI
 cmd/localdatabricks/ui/       # dashboard (must stay next to main.go — go:embed scope)
-internal/api/                 # clusters.go, jobs.go, dbfs.go, workspace.go, unity.go, router.go, errors.go
+internal/api/                 # clusters.go, jobs.go, dbfs.go, workspace.go, unity.go, sql.go, router.go, errors.go, auth.go, pathsafe.go
 internal/engine/executor.go   # subprocess runner (job scripts, not real Spark)
 internal/store/db.go          # SQLite metastore + in-memory cluster/job state
+internal/store/warehouse.go   # DuckDB-backed SQL statement execution
 ```
 
 Full diagram: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

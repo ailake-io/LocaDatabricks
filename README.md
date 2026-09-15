@@ -26,7 +26,15 @@ Open http://localhost:8080 for the embedded dashboard.
 
 ## What's emulated
 
-Clusters (fake state machine), Jobs/Runs (real local subprocess execution), DBFS, Workspace, and a Unity Catalog registry (SQLite-backed catalogs/schemas/tables). Full endpoint list and the roadmap for adding UC governance (ACL, row-level security, column masking, lineage, audit) are in [docs/API.md](docs/API.md).
+Clusters (fake state machine), Jobs/Runs (real local subprocess execution), DBFS, Workspace, a Unity Catalog registry (SQLite-backed catalogs/schemas/tables), and SQL statement execution against a real embedded DuckDB warehouse:
+
+```bash
+curl -s http://localhost:8080/api/2.0/sql/statements \
+  -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+  -d '{"statement": "SELECT 1 + 1 AS answer"}'
+```
+
+Full endpoint list and the roadmap for adding UC governance (ACL, row-level security, column masking, lineage, audit) are in [docs/API.md](docs/API.md).
 
 ## Docs
 
@@ -36,6 +44,8 @@ Clusters (fake state machine), Jobs/Runs (real local subprocess execution), DBFS
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — dev guidelines, local testing, where things live
 
 ## Building
+
+Requires a C compiler on `PATH` (the SQL warehouse uses DuckDB via cgo):
 
 ```bash
 go build -o bin/localdatabricks ./cmd/localdatabricks

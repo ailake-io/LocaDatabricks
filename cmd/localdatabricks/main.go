@@ -47,7 +47,7 @@ func main() {
 		log.Fatalf("create workspace_root: %v", err)
 	}
 
-	s, err := store.New(filepath.Join(*dataDir, "metadata.db"))
+	s, err := store.New(filepath.Join(*dataDir, "metadata.db"), filepath.Join(*dataDir, "warehouse.duckdb"))
 	if err != nil {
 		log.Fatalf("open store: %v", err)
 	}

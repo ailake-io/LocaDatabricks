@@ -42,4 +42,7 @@ func Register(app *fiber.App, s *store.Store, exec *engine.Executor, cfg Config)
 	uc.Post("/schemas", createSchema(s))
 	uc.Post("/tables", createTable(s))
 	uc.Get("/tables", listTables(s))
+
+	v20.Post("/sql/statements", executeStatement(s))
+	v20.Get("/sql/statements/:id", getStatement(s))
 }

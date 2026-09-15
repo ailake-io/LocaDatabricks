@@ -31,6 +31,13 @@ Targets the Databricks REST API 2.0/2.1 endpoints needed by the Databricks CLI, 
 - Manages catalogs, schemas, and tables using an embedded SQLite database (`metadata.db`)
 - Supports registering Delta Lake paths associated with table names
 
+## F. SQL Statement Execution (`/api/2.0/sql/statements`)
+
+- `POST /api/2.0/sql/statements` — executes a SQL statement synchronously against the embedded DuckDB warehouse (`internal/store/warehouse.go`) and returns the result immediately, cached under a generated `statement_id`
+- `GET /api/2.0/sql/statements/{id}` — re-fetches a previously executed statement's result by ID
+
+Response shape matches the real Statement Execution API's essentials: `status.state` (`SUCCEEDED`/`FAILED`), `manifest.schema.columns`, `result.data_array`. Execution is synchronous (no real cluster to wait on), so there's no `PENDING`/`RUNNING` state — a request returns already resolved.
+
 ## Error format
 
 Return standard Databricks API error shape (`error_code`, `message`) instead of generic HTTP 500 pages where possible.
@@ -49,8 +56,8 @@ No distributed Spark, no JVM. Engine substitute: **DuckDB** (SQL/warehouse, Delt
 | Secrets API | KV store (SQLite/file) | trivial |
 | Repos (git) | Thin wrapper over local git | trivial |
 | Cluster policies | Static JSON validation | trivial |
-| Delta Lake tables | `delta-rs` or DuckDB's Delta extension — real Delta format, no Spark | low-medium |
-| Databricks SQL / Warehouses | Mock API in front, real engine = embedded DuckDB | low-medium |
+| Delta Lake tables | `delta-rs` or DuckDB's Delta extension — real Delta format, no Spark (not yet wired to the catalog registry — see below) | low-medium |
+| Databricks SQL / Warehouses | **Implemented** — `/api/2.0/sql/statements` runs against an embedded DuckDB (`internal/store/warehouse.go`); adds cgo to the build and ~60MB to the binary | low-medium |
 | MLflow Tracking/Registry | Run real MLflow OSS server (lightweight) — not an emulation | low |
 | Model Serving | Mock: endpoint returns canned/fixture prediction | trivial |
 | Lakeview/Dashboards | Mock API, returns static JSON (no real rendering) | trivial |
@@ -60,6 +67,10 @@ No distributed Spark, no JVM. Engine substitute: **DuckDB** (SQL/warehouse, Delt
 - Delta Live Tables (DLT) — complex orchestration; at most mock the API + run tasks sequentially as plain scripts
 - Feature Store — shallow mock (tables tagged in SQLite), no real point-in-time joins
 - Full Unity Catalog enforcement (RLS, masking, lineage) — see governance section below for a layered approach instead of skipping entirely
+
+## Known gap: UC registry and SQL warehouse are not yet linked
+
+`unity-catalog/tables` (metadata registry, SQLite) and `sql/statements` (real execution, DuckDB) are currently independent: creating a table via the UC API doesn't create anything queryable in DuckDB, and `CREATE TABLE`/`INSERT` via SQL statements doesn't register anything in the UC registry. Wiring them together (e.g. UC `CREATE TABLE` issuing the matching DDL against the warehouse, and/or `catalog.schema.table`-qualified names in SQL resolving through the registry) is natural follow-up work, and a prerequisite for the RLS/masking rewrite described below — that rewrite needs to know, per query, which UC-registered table a name refers to.
 
 ## Unity Catalog governance (layered emulation)
 

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/marcboeker/go-duckdb/v2"
 	_ "modernc.org/sqlite"
 )
 
@@ -31,29 +32,40 @@ type JobDef struct {
 
 // Store aggregates all emulator state.
 type Store struct {
-	db *sql.DB
+	db          *sql.DB // SQLite metastore: catalogs/schemas/tables/acl/tags/audit/lineage
+	warehouseDB *sql.DB // DuckDB: actual query execution for the SQL warehouse emulation
 
-	mu       sync.RWMutex
-	clusters map[string]*ClusterState
-	runs     map[int64]*RunState
-	jobs     map[int64]*JobDef
-	nextRun  int64
-	nextJob  int64
+	mu         sync.RWMutex
+	clusters   map[string]*ClusterState
+	runs       map[int64]*RunState
+	jobs       map[int64]*JobDef
+	statements map[string]*StatementResult
+	nextRun    int64
+	nextJob    int64
 }
 
-// New opens (or creates) the SQLite metastore at dbPath and runs migrations.
-func New(dbPath string) (*Store, error) {
-	db, err := sql.Open("sqlite", dbPath)
+// New opens (or creates) the SQLite metastore at metaPath and the DuckDB
+// warehouse at warehousePath, and runs metastore migrations.
+func New(metaPath, warehousePath string) (*Store, error) {
+	db, err := sql.Open("sqlite", metaPath)
 	if err != nil {
 		return nil, fmt.Errorf("open metastore: %w", err)
 	}
 	db.SetMaxOpenConns(1) // modernc.org/sqlite: keep writes serialized
 
+	warehouseDB, err := sql.Open("duckdb", warehousePath)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("open warehouse: %w", err)
+	}
+
 	s := &Store{
-		db:       db,
-		clusters: make(map[string]*ClusterState),
-		runs:     make(map[int64]*RunState),
-		jobs:     make(map[int64]*JobDef),
+		db:          db,
+		warehouseDB: warehouseDB,
+		clusters:    make(map[string]*ClusterState),
+		runs:        make(map[int64]*RunState),
+		jobs:        make(map[int64]*JobDef),
+		statements:  make(map[string]*StatementResult),
 	}
 	if err := s.migrate(); err != nil {
 		return nil, err
@@ -61,7 +73,13 @@ func New(dbPath string) (*Store, error) {
 	return s, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	warehouseErr := s.warehouseDB.Close()
+	if err := s.db.Close(); err != nil {
+		return err
+	}
+	return warehouseErr
+}
 
 func (s *Store) migrate() error {
 	stmts := []string{

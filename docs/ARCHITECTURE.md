@@ -59,8 +59,11 @@ local-databricks/
 | Concern | Backing |
 |---|---|
 | Workspace & job state | in-memory |
-| Unity Catalog / metastore | embedded SQLite (`metadata.db`) |
+| Unity Catalog / metastore | embedded SQLite (`metadata.db`) — pure Go, no cgo |
+| SQL statement execution | embedded DuckDB (`warehouse.duckdb`) — cgo, real query engine |
 | DBFS | local directory (`./dbfs_root`) |
 | Workspace files/notebooks | local directory (`./workspace_root`) |
+
+The metastore and the warehouse are separate databases today (see docs/API.md's "Known gap" note) — UC's table registry doesn't yet drive what's queryable in DuckDB.
 
 See [API.md](API.md) for the endpoint surface and [DEVELOPMENT.md](DEVELOPMENT.md) for implementation rules and the reference code skeleton.

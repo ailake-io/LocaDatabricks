@@ -10,6 +10,10 @@
 - **Single-binary integrity** — UI assets live at `cmd/localdatabricks/ui/`, next to `main.go` — `go:embed` only sees files in its own source file's subtree, so the UI can't live at the repo root.
 - **No external CDN in the UI** — the dashboard is plain HTML/CSS/JS with zero third-party script tags, so it works fully offline and carries no supply-chain surface.
 
+## Build requirements
+
+The SQL warehouse uses `go-duckdb` (cgo) — building requires a C compiler (`gcc`/`clang`) on `PATH`. Everything else in the stack is pure Go. CI (`.github/workflows/ci.yml`) runs on `ubuntu-latest`, which has one preinstalled.
+
 ## Local testing
 
 ```bash
@@ -43,6 +47,8 @@ Open http://localhost:8080 for the embedded web management console.
 | Workspace API | `internal/api/workspace.go` |
 | Unity Catalog registry | `internal/api/unity.go` |
 | SQLite metastore + in-memory state | `internal/store/db.go` |
+| DuckDB-backed SQL statement execution | `internal/store/warehouse.go` |
+| SQL Statement Execution API | `internal/api/sql.go` |
 | Job script execution (subprocess, not Spark) | `internal/engine/executor.go` |
 | Embedded UI | `cmd/localdatabricks/ui/index.html` |
 
